@@ -1,11 +1,95 @@
 # Quiz Learner — Streamlit App
 
+## Description
+
+This is a Streamlit application designed to help users prepare for the Google Cloud Professional Machine Learning Engineer (PMLE) certification exam. The app provides a quiz interface and around 850 questions.
+
+By going though all these questions, users can reinforce their understanding of key concepts and topics covered in the PMLE exam. Wrong answers are tracked to help users focus on areas where they need improvement. You can retry wrong answers until you master them.
+
+## Installation
+
+Clone the repository locally:
+
+```bash
+git clone git@github.com:AndyTheFactory/gcp-pmle-quiz.git
+cd gcp-pmle-quiz
+```
+
+### Docker
+
+Build the Docker image:
+
+```bash
+docker compose up --build -d
+```
+
+### Using `uv`
+
+Install `uv` (more info [here](https://docs.astral.sh/uv/getting-started/installation/#standalone-installer))
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Install dependencies and run the app:
+
+```bash
+uv sync
+```
+
 Run the app locally:
 
 ```bash
-pip install -r requirements.txt
-streamlit run app.py
+uv run streamlit run 🏠_Dashboard.py
 ```
+
+
+### Good old `pip`
+
+Create and activate a virtual environment:
+
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install pip-tools
+python -m piptools compile \
+    -o requirements.txt \
+    pyproject.toml
+pip install -r requirements.txt
+```
+
+Run the app locally:
+
+```bash
+python  -m streamlit run 🏠_Dashboard.py
+```
+## Usage
+
+Open your browser and go to `http://localhost:8501`
+
+To start a new quiz session, navigate to "Quiz Mode" from the sidebar.
+
+Click Start round and answer questions.
+
+When you finished a round, you can press "Stop Round" and save your progress.
+
+It is important to save your progress in order to assess your knowledge in specific topics.
+Check your knowledge gap in the "Dashboard" tab.
+
+If you want to use Notebook LM to help you prepping for the Certification exam, you can export a markdown file with all the questions you got wrong, and use it as a source for Notebook LM. Prompt then Notebook LM to create quizzes and flashcards based on these questions. You can use a prompt like this:
+
+```
+
+Create a quiz that relies on questions i answered incorrectly. Use those questions and answers as templates to create more quizz questions.
+Base your questions also on the best practice documents provided
+```
+
+## Some details
 
 Data files:
 - `data/quizzes.jsonl`: quiz items (one JSON object per line) with fields: `question` (str), `options` (list[str]), `answer` (int index), `explanation` (str).
