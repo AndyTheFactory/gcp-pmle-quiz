@@ -6,6 +6,8 @@ This is a Streamlit application designed to help users prepare for the Google Cl
 
 By going though all these questions, users can reinforce their understanding of key concepts and topics covered in the PMLE exam. Wrong answers are tracked to help users focus on areas where they need improvement. You can retry wrong answers until you master them.
 
+![App Usage](./_docs/assets/app_usage.gif)
+
 ## Installation
 
 Clone the repository locally:
