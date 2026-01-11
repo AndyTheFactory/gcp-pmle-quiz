@@ -17,7 +17,7 @@ else:
 # Export questions with "False" in Progress.json
 def export_false_questions():
     progress = load_progress()
-    _, _, questions = load_quizzes(progress)
+    questions, _, _ = load_quizzes(progress)
 
     # Create markdown content
     md_lines = [
