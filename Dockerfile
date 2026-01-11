@@ -7,7 +7,7 @@ COPY . /app
 
 
 
-RUN uv sync --locked
+RUN uv sync
 
 EXPOSE 8501
 
