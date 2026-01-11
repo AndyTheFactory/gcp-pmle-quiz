@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gcp-pmle-quiz-streamlit
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data:rw
+    environment:
+      - STREAMLIT_SERVER_ENABLECORS=false
+      - STREAMLIT_SERVER_RUN_ON_SAVE=false
+      - STREAMLIT_SERVER_HEADLESS=true
+    command: ["streamlit", "run", "app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
+    restart: unless-stopped
