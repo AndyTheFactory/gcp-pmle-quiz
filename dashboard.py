@@ -19,9 +19,9 @@ def show_dashboard():
     col4.metric("Wrong", wrong)
     show_topic_distribution()
     if progress:
-        show_knowledge_gaps(progress=progress, topic_field="gcp_topics")
+        show_knowledge_gaps(progress=progress, topic_field="domain")
         show_knowledge_gaps(progress=progress, topic_field="gcp_products")
-        show_knowledge_gaps(progress=progress, topic_field="ml_topics")
+        show_knowledge_gaps(progress=progress, topic_field="gcp_topics")
     else:
         st.info("No progress found. Answer some quizzes to see your knowledge gaps.", icon="ℹ️")
 
@@ -116,7 +116,10 @@ def show_knowledge_gaps(progress: dict[int, bool] | None = None, topic_field: st
     if df.empty:
         return
 
-    topic_field_name = topic_field.replace("_", " ").title()
+    if topic_field == "domain":
+        topic_field_name = "PMLE Exam Domain"
+    else:
+        topic_field_name = topic_field.replace("_", " ").title()
     st.title(f"🧠 Knowledge Gap per {topic_field_name}")
 
     # --- Compute topic stats ---

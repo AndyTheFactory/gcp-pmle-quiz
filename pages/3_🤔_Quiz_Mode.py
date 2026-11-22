@@ -66,6 +66,8 @@ def show_quiz():
     st.header(f"Question (#{q.id}) {pos + 1} / {len(st.session_state.quizzes)}")
 
     tags = []
+    if getattr(q, "domain", None):
+        tags.append(f"🎯 **Domain:** {q.domain}")
     if q.gcp_products:
         tags.append(f"☁️ **Products:** {', '.join(q.gcp_products)}")
     if q.gcp_topics or q.ml_topics:
@@ -189,15 +191,15 @@ def show_stats():
 
     with st.container(border=True):
         st.subheader("🎯 Round Settings")
-        all_products = sorted(list(set(p for q in all_quizzes for p in q.gcp_products if p)))
-        c_prod, c_size = st.columns([2, 1])
-        selected_product = c_prod.selectbox(
-            "Filter by GCP Product / Domain:",
-            ["All Products / Domains"] + all_products,
-            key="selected_product_filter",
+        domains = sorted(list(set(getattr(q, "domain", "ML Fundamentals & Theory") for q in all_quizzes)))
+        c_dom, c_size = st.columns([2, 1])
+        selected_domain = c_dom.selectbox(
+            "Filter by PMLE Exam Domain:",
+            ["All Domains (Full Exam Prep)"] + domains,
+            key="selected_domain_filter",
         )
         round_size = c_size.selectbox(
-            "Round size:",
+            "Round size (questions):",
             [10, 20, 30, 50, "All"],
             index=1,
             key="round_size_selection",
@@ -227,8 +229,8 @@ def show_stats():
         else:
             candidate_quizzes = not_answered
 
-        if selected_product != "All Products / Domains":
-            candidate_quizzes = [q for q in candidate_quizzes if selected_product in q.gcp_products]
+        if selected_domain != "All Domains (Full Exam Prep)":
+            candidate_quizzes = [q for q in candidate_quizzes if getattr(q, "domain", "") == selected_domain]
 
         if not candidate_quizzes:
             st.warning("No quizzes match the selected filters for this round.")
