@@ -176,9 +176,10 @@ with tabs[0]:
 
     colA, colB = st.columns([1, 2])
 
+    filtered_names = [x["product_name"] for x in filtered]
     with colA:
-        choice = st.selectbox("Select product", options=product_names, index=0)
-    r = next(x for x in filtered if x["product_name"] == choice)
+        choice = st.selectbox("Select product", options=filtered_names, index=0)
+    r = next((x for x in filtered if x["product_name"] == choice), filtered[0])
 
     with colB:
         st.markdown(f"### {r['product_name']}")

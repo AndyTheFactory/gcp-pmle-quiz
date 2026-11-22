@@ -4,7 +4,9 @@ from pathlib import Path
 
 import streamlit as st
 
-from utils import compute_stats, load_progress, load_quizzes, save_progress, set_css_style
+st.set_page_config(page_title="Quiz Mode", layout="wide")
+
+from utils import compute_stats, fix_image_src, load_progress, load_quizzes, save_progress, set_css_style
 from utils.session import cache_session, clear_session_cache, load_session
 
 load_session()
@@ -51,10 +53,10 @@ def show_quiz():
         if st.button(
             "Save round results to overall progress", icon="💾", on_click=save_progress_click, args=(progress,)
         ):
-            st.switch_page("app.py")
+            st.switch_page("🏠_Dashboard.py")
 
         if st.button("Clear round data", icon="🗑️", on_click=clear_round_data):
-            st.switch_page("app.py")
+            st.switch_page("🏠_Dashboard.py")
 
         return
 
@@ -63,8 +65,16 @@ def show_quiz():
     q = quizzes[pos]
     st.header(f"Question (#{q.id}) {pos + 1} / {len(st.session_state.quizzes)}")
 
+    tags = []
+    if q.gcp_products:
+        tags.append(f"☁️ **Products:** {', '.join(q.gcp_products)}")
+    if q.gcp_topics or q.ml_topics:
+        tags.append(f"📚 **Topics:** {', '.join(q.gcp_topics or q.ml_topics)}")
+    if tags:
+        st.caption(" • ".join(tags))
+
     question = q.question if "<p>" in q.question.lower() else f"<p>{q.question}</p>"
-    st.markdown(question, unsafe_allow_html=True)
+    st.markdown(fix_image_src(question), unsafe_allow_html=True)
 
     # choice control keying by position to keep state per question
     choice_key = f"choice_{pos}"
@@ -74,6 +84,7 @@ def show_quiz():
             q.options,
             index=None,
             key=choice_key,
+            disabled=st.session_state.quiz_mode_answered,
         )
     else:
         choice = [0] * len(q.options)
@@ -82,6 +93,7 @@ def show_quiz():
                 answ,
                 value=False,
                 key=f"{choice_key}_{i}",
+                disabled=st.session_state.quiz_mode_answered,
             )
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
@@ -89,12 +101,13 @@ def show_quiz():
         if not choice or (isinstance(choice, list) and not any(choice)):
             st.warning("Please select at least one answer before submitting.")
         else:
+            correct_answer_set = set(q.answer) if isinstance(q.answer, list) else {q.answer}
             if q.mode == "multiple_choice":
                 choice_idx = set([i for i, val in enumerate(choice) if val])
-                st.session_state.quiz_mode_round_progress[pos] = choice_idx == set(q.answer)
+                st.session_state.quiz_mode_round_progress[pos] = choice_idx == correct_answer_set
             else:
                 choice_idx = q.options.index(choice)
-                st.session_state.quiz_mode_round_progress[pos] = choice_idx == q.answer
+                st.session_state.quiz_mode_round_progress[pos] = choice_idx in correct_answer_set
 
             st.session_state.quiz_mode_answered = True
             cache_session()
@@ -107,13 +120,14 @@ def show_quiz():
             st.error("Incorrect ❌")
             st.markdown("---")
             st.markdown("### Correct Answer:")
-            if q.mode == "multiple_choice":
+            if isinstance(q.answer, list):
                 for ans_idx in q.answer:
                     st.markdown(f"- {q.options[ans_idx]}")
             else:
                 st.markdown(q.options[q.answer])
         st.markdown("### Explanation:")
-        st.markdown(q.explanation, unsafe_allow_html=True)
+        if q.explanation:
+            st.markdown(fix_image_src(q.explanation), unsafe_allow_html=True)
 
     caption = "➡️ Next Question" if st.session_state.quiz_mode_answered else "⏭️ Skip Question"
     if col2.button(caption, key=f"next_{pos}"):
@@ -148,17 +162,18 @@ def show_quiz():
             if st.button(
                 "Save round results to overall progress", icon="💾", on_click=save_progress_click, args=(progress,)
             ):
-                st.switch_page("app.py")
+                st.switch_page("🏠_Dashboard.py")
 
             if st.button("Clear round data", icon="🗑️", on_click=clear_round_data):
-                st.switch_page("app.py")
+                st.switch_page("🏠_Dashboard.py")
 
 
 def show_stats():
     progress = load_progress()
     answered_incorrectly, not_answered, answered_correctly = load_quizzes(progress)
 
-    if not answered_incorrectly and not not_answered and not answered_correctly:
+    all_quizzes = answered_incorrectly + not_answered + answered_correctly
+    if not all_quizzes:
         st.warning("No quizzes found in data/quizzes.jsonl")
         return
 
@@ -172,42 +187,60 @@ def show_stats():
         with cols[2]:
             st.metric("Not answered", len(not_answered))
 
-    if st.button("Start Round", type="primary"):
+    with st.container(border=True):
+        st.subheader("🎯 Round Settings")
+        all_products = sorted(list(set(p for q in all_quizzes for p in q.gcp_products if p)))
+        c_prod, c_size = st.columns([2, 1])
+        selected_product = c_prod.selectbox(
+            "Filter by GCP Product / Domain:",
+            ["All Products / Domains"] + all_products,
+            key="selected_product_filter",
+        )
+        round_size = c_size.selectbox(
+            "Round size:",
+            [10, 20, 30, 50, "All"],
+            index=1,
+            key="round_size_selection",
+        )
+
+        include_wrong = st.toggle("➕ Include Previously Wrong Questions", value=True, key="wrong_answered_inclusion")
+        if include_wrong:
+            st.caption("Previously wrong answers will be prioritized so you can reinforce weak areas.")
+            st.number_input(
+                "Percentage of previously correct answers to include for review",
+                min_value=0,
+                max_value=100,
+                value=0,
+                step=10,
+                key="correct_answered_percentage",
+            )
+
+    if st.button("▶️ Start Round", type="primary"):
         if st.session_state.wrong_answered_inclusion:
-            pct = st.session_state.correct_answered_percentage
+            pct = st.session_state.get("correct_answered_percentage", 0)
             num_to_include = int(len(answered_correctly) * pct / 100)
-            quizzes = not_answered + answered_incorrectly
+            candidate_quizzes = not_answered + answered_incorrectly
             if num_to_include > 0:
                 logger.info(f"Including {num_to_include} previously correct answered questions in the round.")
                 sampled_correct = random.sample(answered_correctly, num_to_include) if num_to_include > 0 else []
-                quizzes += sampled_correct
+                candidate_quizzes += sampled_correct
         else:
-            quizzes = not_answered
+            candidate_quizzes = not_answered
 
-        if not quizzes:
-            st.warning("No quizzes left to answer for this round.")
+        if selected_product != "All Products / Domains":
+            candidate_quizzes = [q for q in candidate_quizzes if selected_product in q.gcp_products]
+
+        if not candidate_quizzes:
+            st.warning("No quizzes match the selected filters for this round.")
         else:
-            st.session_state.message = "Starting new round..."
-            start_new_round(quizzes)
-
-    st.info("Press 'Start Round' to begin the quiz.")
-
-    if st.toggle("➕ Include Wrong Answered", value=False, key="wrong_answered_inclusion"):
-        st.info("Previous wrong answers will be included in the quiz.")
-
-        st.number_input(
-            "Percentage of correct answered to include",
-            min_value=0,
-            max_value=100,
-            value=0,
-            step=10,
-            key="correct_answered_percentage",
-        )
+            if round_size != "All" and isinstance(round_size, int):
+                random.shuffle(candidate_quizzes)
+                candidate_quizzes = candidate_quizzes[:round_size]
+            st.session_state.message = f"Starting new round with {len(candidate_quizzes)} questions..."
+            start_new_round(candidate_quizzes)
 
 
 def main():
-    st.set_page_config(page_title="Quiz Mode")
-
     st.title("Quiz Mode")
 
     if st.session_state.quiz_in_progress and st.session_state.quizzes:
