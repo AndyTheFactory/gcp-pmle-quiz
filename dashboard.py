@@ -18,10 +18,10 @@ def show_dashboard():
     col3.metric("Correct", correct)
     col4.metric("Wrong", wrong)
     show_topic_distribution()
-    if PROGRESS_FILE.exists() and len(PROGRESS_FILE.read_text().strip()) > 0:
-        show_knowledge_gaps(topic_field="gcp_topics")
-        show_knowledge_gaps(topic_field="gcp_products")
-        show_knowledge_gaps(topic_field="ml_topics")
+    if progress:
+        show_knowledge_gaps(progress=progress, topic_field="gcp_topics")
+        show_knowledge_gaps(progress=progress, topic_field="gcp_products")
+        show_knowledge_gaps(progress=progress, topic_field="ml_topics")
     else:
         st.info("No progress found. Answer some quizzes to see your knowledge gaps.", icon="ℹ️")
 
@@ -96,22 +96,32 @@ def show_topic_distribution():
     st.plotly_chart(fig, width="stretch")
 
 
-def show_knowledge_gaps(topic_field: str = "gcp_topics"):
+def show_knowledge_gaps(progress: dict[int, bool] | None = None, topic_field: str = "gcp_topics"):
+    if progress is None:
+        progress = load_progress()
+    if not progress:
+        return
+
     questions = pd.read_json(QUIZ_FILE, lines=True)
-    progress = pd.read_json(PROGRESS_FILE, orient="index").rename(columns={0: "answer_correct"})
-    questions = questions.merge(progress, left_on="id", right_index=True, how="left")
+    progress_df = pd.DataFrame(
+        list(progress.items()), columns=["id", "answer_correct"]
+    )
+    questions = questions.merge(progress_df, on="id", how="left")
+
+    if "answer_correct" not in questions.columns or topic_field not in questions.columns:
+        return
 
     df = questions[["id", "answer_correct", topic_field]].explode(topic_field).rename(columns={topic_field: "topic"})
-
-    df.dropna(subset=["answer_correct"], inplace=True)
+    df.dropna(subset=["answer_correct", "topic"], inplace=True)
+    if df.empty:
+        return
 
     topic_field_name = topic_field.replace("_", " ").title()
     st.title(f"🧠 Knowledge Gap per {topic_field_name}")
 
     # --- Compute topic stats ---
     topic_stats = (
-        df.dropna(subset=["topic"])
-        .assign(topic=lambda d: d["topic"].astype(str))
+        df.assign(topic=lambda d: d["topic"].astype(str))
         .groupby("topic")
         .agg(
             attempts=("answer_correct", "count"),
@@ -119,8 +129,11 @@ def show_knowledge_gaps(topic_field: str = "gcp_topics"):
             accuracy=("answer_correct", "mean"),
         )
         .reset_index()
-        .rename(columns={"ml_topics": "topic"})
     )
+
+    if topic_stats.empty:
+        st.info(f"No topic data available for {topic_field_name}.")
+        return
 
     # Safety: ensure boolean -> numeric
     # (If answer_correct is already bool, sum/mean work; if string, fix upstream)
@@ -131,13 +144,19 @@ def show_knowledge_gaps(topic_field: str = "gcp_topics"):
     with st.container(border=True):
         c1, c2, c3, c4 = st.columns([1.2, 1.2, 1.2, 2.4], vertical_alignment="center")
 
-        min_question_topic = c1.slider(
-            "Min questions per topic (show topics ≥ this)",
-            1,
-            int(max(1, topic_stats["attempts"].max())),
-            5,
-            key=f"min_questions_{topic_field}",
-        )
+        max_attempts = int(max(1, topic_stats["attempts"].max()))
+        if max_attempts > 1:
+            min_question_topic = c1.slider(
+                "Min questions per topic (show topics ≥ this)",
+                1,
+                max_attempts,
+                min(5, max_attempts),
+                key=f"min_questions_{topic_field}",
+            )
+        else:
+            min_question_topic = 1
+            c1.metric("Min questions per topic", 1)
+
         max_accuracy = c2.slider(
             "Max accuracy (show topics ≤ this)", 0.0, 1.0, 0.80, 0.01, key=f"max_accuracy_{topic_field}"
         )

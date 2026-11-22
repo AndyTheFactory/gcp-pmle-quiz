@@ -13,6 +13,13 @@ dependencies = [
   "plotly>=6.5.1",
 ]
 
-[project.scripts]
-# Console script so tooling (and `uv`) can detect an entrypoint
-quiz = "🏠_Dashboard:main"
+[dependency-groups]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

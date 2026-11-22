@@ -9,8 +9,6 @@ st.set_page_config(page_title="Quiz Learner", initial_sidebar_state="collapsed",
 
 
 def main():
-    st.set_page_config(page_title="Quiz Learner", initial_sidebar_state="collapsed", layout="wide")
-
     set_css_style(Path("style.css"))
 
     st.title("Quiz Learner — Dashboard")
