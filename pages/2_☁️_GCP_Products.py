@@ -143,85 +143,209 @@ def capability_matrix(rows):
 # -----------------------------
 # Streamlit UI
 # -----------------------------
-st.set_page_config(page_title="GCP Product Learning Map", layout="wide")
+st.set_page_config(page_title="GCP Product Exam Guide", layout="wide")
 
-st.title("GCP Product Learning Map")
-st.caption("Comparison views to learn products and understand their connections.")
+st.title("☁️ GCP Product Exam Guide")
+st.caption("Simplified reference guide for Google Cloud ML Engineer certification: core exam services, decision rules, and architecture connections.")
 
 rows = to_rows(DATA)
 
-# Sidebar filters
-st.sidebar.header("Filters")
+# Core exam services that appear in ~90% of PMLE exam questions
+CORE_SERVICES = {
+    "Vertex AI",
+    "BigQuery ML",
+    "Dataflow",
+    "BigQuery",
+    "Cloud Storage",
+    "Pub/Sub",
+    "Vertex AI Pipelines",
+    "Vertex AI Feature Store",
+    "Vertex Explainable AI",
+    "Vertex AI Prediction",
+    "Document AI",
+    "AutoML",
+    "Cloud Data Loss Prevention",
+    "Dataproc",
+    "Cloud TPU",
+    "Compute Engine",
+    "Google Kubernetes Engine",
+    "Cloud Run",
+    "TensorBoard",
+    "Kubeflow Pipelines",
+    "TFX",
+    "Bigtable",
+    "Cloud SQL",
+    "Cloud Spanner",
+    "Vertex AI Workbench",
+    "Colab Enterprise",
+    "Model Garden",
+    "Model Armor",
+}
 
-product_names = sorted([r["product_name"] for r in rows])
-selected_product = st.sidebar.multiselect("Focus product", options=product_names, default=product_names)
+DOMAIN_MAPPING = {
+    "🧠 Agent & Generative AI": [
+        "Vertex AI", "Document AI", "Vision API", "Speech-to-Text API", "Recommendations AI",
+        "Dialogflow", "Model Garden", "Model Armor", "Colab Enterprise"
+    ],
+    "⚙️ Model Development & MLOps": [
+        "BigQuery ML", "AutoML", "AutoML Vision", "AutoML Vision Edge", "AutoML Video Intelligence",
+        "AutoML Tables", "Vertex AI Pipelines", "Kubeflow Pipelines", "TFX", "Vertex AI Workbench",
+        "Vertex ML Metadata", "Vertex AI Experiments", "TensorBoard", "LIT", "Cloud TPU", "TensorFlow Enterprise"
+    ],
+    "🚀 Serving, Scaling & Monitoring": [
+        "Vertex AI Prediction", "Vertex AI Feature Store", "Vertex Explainable AI",
+        "Cloud Run", "Google Kubernetes Engine", "Compute Engine"
+    ],
+    "📊 Data Engineering & Storage": [
+        "BigQuery", "Dataflow", "Dataproc", "Pub/Sub", "Cloud Storage", "Cloud Data Loss Prevention",
+        "Cloud Data Fusion", "Dataplex", "Bigtable", "Cloud SQL", "Cloud Spanner", "Filestore"
+    ],
+}
 
 
-# filter rows
-filtered = []
-for r in rows:
-    if r["product_name"] not in selected_product:
-        continue
+def get_product_domain(prod_name: str) -> str:
+    for domain, prods in DOMAIN_MAPPING.items():
+        if prod_name in prods:
+            return domain
+    return "⚙️ Model Development & MLOps"
 
-    filtered.append(r)
+
+# Sidebar controls
+st.sidebar.header("🎯 Scope & Filters")
+scope = st.sidebar.radio(
+    "Catalog Scope",
+    ["🌟 Core Exam Services (~28)", "🌐 Full Catalog (104)"],
+    index=0,
+)
+
+if "Core Exam Services" in scope:
+    scoped_rows = [r for r in rows if r["product_name"] in CORE_SERVICES]
+else:
+    scoped_rows = rows
+
+selected_domain = st.sidebar.selectbox(
+    "Filter by Domain",
+    ["All Domains"] + list(DOMAIN_MAPPING.keys()),
+    index=0,
+)
+
+if selected_domain != "All Domains":
+    filtered = [r for r in scoped_rows if get_product_domain(r["product_name"]) == selected_domain]
+else:
+    filtered = scoped_rows
 
 if not filtered:
     st.warning("No products match your filters.")
     st.stop()
 
-tabs = st.tabs(["Product Detail", "Capability Matrix"])
+filtered_names = sorted([r["product_name"] for r in filtered])
+
+tabs = st.tabs(["📑 Product Detail & Exam Card", "⚖️ When to Use What (Decision Cheat Sheet)", "🔗 Architecture Dependencies"])
 
 with tabs[0]:
-    st.subheader("Product details (learning view)")
+    col_sel, col_stat = st.columns([2, 1], vertical_alignment="center")
+    with col_sel:
+        choice = st.selectbox("Select a Google Cloud Product to review:", options=filtered_names, index=0)
+    with col_stat:
+        st.metric("Products in view", len(filtered_names))
 
-    colA, colB = st.columns([1, 2])
-
-    filtered_names = [x["product_name"] for x in filtered]
-    with colA:
-        choice = st.selectbox("Select product", options=filtered_names, index=0)
     r = next((x for x in filtered if x["product_name"] == choice), filtered[0])
 
-    with colB:
-        st.markdown(f"### {r['product_name']}")
-        st.write(r["short_description"])
+    with st.container(border=True):
+        c_title, c_badge = st.columns([3, 1], vertical_alignment="center")
+        with c_title:
+            st.markdown(f"### {r['product_name']}")
+        with c_badge:
+            st.info(f"**Type:** {r['entity_type'] or 'Service'}")
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown("#### UI / Access")
-        for x in r["ui"]:
-            st.write(f"- {x}")
-    with c2:
-        st.markdown("#### Connected to")
-        for x in r["connected_to"]:
-            st.write(f"- {x}")
-    with c3:
-        st.markdown("#### Entity type")
-        st.write(r["entity_type"])
+        st.markdown(f"*{r['short_description']}*")
+        st.markdown("---")
 
-    st.markdown("#### Use cases")
-    for x in r["use_cases"]:
-        st.write(f"- {x}")
+        col_use, col_not = st.columns(2)
+        with col_use:
+            st.markdown("#### ✅ When to Choose (Exam Triggers)")
+            if r["use_cases"]:
+                for u in r["use_cases"]:
+                    st.success(f"• {u}")
+            else:
+                st.caption("Standard Google Cloud ML component.")
 
-    st.markdown("#### Not used when")
-    for x in r["not_used_when"]:
-        st.write(f"- {x}")
+        with col_not:
+            st.markdown("#### ❌ NOT Used When (Distractor Traps)")
+            if r["not_used_when"]:
+                for nu in r["not_used_when"]:
+                    st.error(f"• {nu}")
+            else:
+                st.caption("No specific contraindications recorded.")
 
-# ---- Tab 3: Capability matrix
+        st.markdown("---")
+        c_conn, c_ui = st.columns(2)
+        with c_conn:
+            st.markdown("#### 🔗 Commonly Connected To")
+            if r["connected_to"]:
+                st.write(", ".join([f"`{c}`" for c in r["connected_to"]]))
+            else:
+                st.caption("Independent component.")
+        with c_ui:
+            st.markdown("#### 💻 Access Methods & UI")
+            if r["ui"]:
+                st.write(", ".join([f"`{u}`" for u in r["ui"]]))
+            else:
+                st.caption("Standard Cloud Console & Client Libraries.")
+
 with tabs[1]:
-    st.subheader("Capability matrix (shared connections)")
+    st.subheader("⚖️ When to Use What — PMLE Decision Guide")
+    st.caption("Quick-reference guide for standard exam trade-offs and decision rules.")
+
+    with st.expander("📊 Dataflow vs. Dataproc vs. BigQuery (SQL)", expanded=True):
+        st.markdown("""
+| Service | Best Used When (Exam Prompt Keywords) | NOT Used When |
+| :--- | :--- | :--- |
+| **Dataflow** | Real-time streaming or batch distributed data preprocessing using Apache Beam; exactly-once processing; windowing. | Existing legacy Spark code; in-warehouse tabular analytics. |
+| **Dataproc** | Lift-and-shift of existing Apache Spark, Hadoop, or PySpark pipelines; SparkML workflows. | Greenfield serverless streaming pipelines (prefer Dataflow). |
+| **BigQuery (SQL)** | In-place tabular transformations, window functions, and `ML.TRANSFORM` directly in the data warehouse. | Unstructured data (images/video); custom C++ or Python libraries. |
+""")
+
+    with st.expander("⚙️ BigQuery ML vs. AutoML vs. Custom Containers", expanded=True):
+        st.markdown("""
+| Approach | Best Used When (Exam Prompt Keywords) | NOT Used When |
+| :--- | :--- | :--- |
+| **BigQuery ML** | Rapid modeling with SQL; tabular, ARIMA_PLUS time-series, or remote Gemini fine-tuning with zero data movement. | Custom deep learning architectures requiring custom PyTorch/TF layers. |
+| **AutoML (Agent Platform)** | Tabular, vision, or NLP problems where you want high accuracy without manual feature engineering or hyperparameter tuning. | Need full control over model hyperparameters, code-level optimizations, or custom layers. |
+| **Custom Containers** | Custom frameworks (PyTorch, JAX, Hugging Face, custom C++ bindings); distributed training with `TF_CONFIG`; TPU/GPU model parallelism. | Simple tabular or standard models where managed AutoML or BQML suffices with less effort. |
+""")
+
+    with st.expander("🚀 Agent Platform Endpoints vs. Batch Prediction vs. Cloud Run"):
+        st.markdown("""
+| Serving Pattern | Best Used When (Exam Prompt Keywords) | NOT Used When |
+| :--- | :--- | :--- |
+| **Agent Platform Endpoint** | Online synchronous prediction with strict latency SLA (<30ms); autoscaling; canary traffic splitting; Model Monitoring. | Asynchronous processing of millions of offline records (use Batch). |
+| **Batch Prediction** | High-volume offline predictions scheduled periodically on files in Cloud Storage or BigQuery tables; zero idle cost. | Real-time interactive user-facing predictions requiring immediate response. |
+| **Cloud Run** | Lightweight, CPU-based HTTP microservices packaging small models (sklearn, XGBoost); scale-to-zero cost optimization. | Heavy deep learning models requiring GPU/TPU accelerators or native Model Monitoring. |
+""")
+
+    with st.expander("📓 Colab Enterprise vs. Agent Platform Workbench"):
+        st.markdown("""
+| Environment | Best Used When (Exam Prompt Keywords) | NOT Used When |
+| :--- | :--- | :--- |
+| **Colab Enterprise** | Serverless collaborative notebooks with built-in IAM security, Gemini code completion, and native BigQuery integration. | Workloads requiring dedicated VM instances, local file systems, or root SSH access. |
+| **Agent Platform Workbench** | Data scientists requiring dedicated Compute Engine instances, customizable conda environments, and persistent local disks. | Zero-maintenance collaboration across large cross-functional teams. |
+""")
+
+    with st.expander("🛡️ Cloud DLP vs. Model Armor"):
+        st.markdown("""
+| Security Tool | Best Used When (Exam Prompt Keywords) | NOT Used When |
+| :--- | :--- | :--- |
+| **Cloud DLP** | Inspecting, masking, and de-identifying PII (credit cards, names, SSNs) in datasets before ingestion/training. | Real-time LLM prompt sanitization and jailbreak defense. |
+| **Model Armor** | Protecting Generative AI and LLM endpoints against prompt injection, jailbreaks, malicious prompts, and LLM data leakage. | Static dataset scanning in Cloud Storage or BigQuery. |
+""")
+
+with tabs[2]:
+    st.subheader("🔗 Architecture Dependencies & Connected Services")
     df = capability_matrix(filtered)
-
-    # show as counts + boolean grid
-    st.caption("Rows are products, columns are dependencies (connected_to). True means the product connects to it.")
-
-    # optionally sort dependencies by popularity
     dep_counts = df.sum(axis=0).sort_values(ascending=False)
-    top_n = st.slider("Show top dependencies", 5, min(50, len(dep_counts)), min(20, len(dep_counts)))
-    top_cols = dep_counts.index[:top_n].tolist()
 
-    st.dataframe(df[top_cols].astype(bool), width="stretch")
-
-    st.markdown("##### Most shared dependencies")
-    shared = dep_counts.head(10).reset_index()
-    shared.columns = ["Dependency", "Connected products"]
-    st.dataframe(shared, width="stretch")
+    st.caption("Most frequently connected services in Google Cloud ML architectures:")
+    top_shared = dep_counts.head(12).reset_index()
+    top_shared.columns = ["Service", "Connected Products in View"]
+    st.dataframe(top_shared, width="stretch", hide_index=True)
