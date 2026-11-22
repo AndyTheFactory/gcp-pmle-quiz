@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from pathlib import Path
 
 import streamlit as st
@@ -11,6 +12,13 @@ QUIZ_FILE = DATA_DIR / "quizzes.jsonl"
 PROGRESS_FILE = DATA_DIR / "progress.json"
 
 logger = logging.getLogger(__name__)
+
+
+def fix_image_src(text: str) -> str:
+    """Normalize relative static image paths so images render correctly on subpages."""
+    if not text:
+        return text
+    return re.sub(r'src=["\']app/static/', 'src="/app/static/', text)
 
 
 def load_quizzes(progress: dict[int, bool]) -> tuple[list[Question], list[Question], list[Question]]:
@@ -25,7 +33,7 @@ def load_quizzes(progress: dict[int, bool]) -> tuple[list[Question], list[Questi
         for line in f:
             line = line.strip()
             try:
-                question = Question.parse_raw(line)
+                question = Question.model_validate_json(line)
                 if question.id in progress:
                     if progress[question.id]:
                         quizzes_answered_correctly.append(question)

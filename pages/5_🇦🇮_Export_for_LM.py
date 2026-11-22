@@ -2,7 +2,11 @@ from pathlib import Path
 
 import streamlit as st
 
-from utils import load_progress, load_quizzes
+st.set_page_config(page_title="Export for NotebookLM", layout="wide")
+
+from utils import load_progress, load_quizzes, set_css_style
+
+set_css_style(Path("style.css"))
 
 MD_PATH = Path("export_for_lm.md")
 

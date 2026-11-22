@@ -4,7 +4,9 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from utils import set_css_style
+st.set_page_config(page_title="Edit Questions Mode", layout="wide")
+
+from utils import fix_image_src, set_css_style
 from utils.session import load_session
 
 load_session()
@@ -21,8 +23,6 @@ set_css_style(Path("style.css"))
 
 
 def main():
-    st.set_page_config(page_title="Edit Questions Mode")
-
     st.title("View Gemini Results")
 
     pos = st.session_state.pos
@@ -59,7 +59,7 @@ def main():
 
     st.markdown(f"### Question (Id: {quizzy.id})  {pos + 1} / {len(quizzies)}")
     question = quizzy.question if "<p>" in quizzy.question.lower() else f"<p>{quizzy.question}</p>"
-    st.markdown(question, unsafe_allow_html=True)
+    st.markdown(fix_image_src(question), unsafe_allow_html=True)
 
     if st.session_state.is_editing:
         answers = []
@@ -95,18 +95,22 @@ def main():
             key=f"explanation_{pos}",
         )
     else:
-        st.markdown(quizzy.explanation, unsafe_allow_html=True)
+        if quizzy.explanation:
+            st.markdown(fix_image_src(quizzy.explanation), unsafe_allow_html=True)
 
     if st.session_state.is_editing:
         col_save, col_cancel = st.columns(2)
         if col_save.button("💾 Save Changes", type="primary", key=f"save_{pos}"):
             new_answer = [i for i, val in enumerate(answers) if val]
-            quizzies.at[quizzy.name, "answer"] = new_answer if len(new_answer) > 1 else new_answer[0]
-            quizzies.at[quizzy.name, "explanation"] = explanation
-            quizzies.to_json("data/quizzes.jsonl", lines=True, orient="records")
-            st.session_state.is_editing = False
-            st.success("Changes saved successfully!")
-            st.rerun()
+            if not new_answer:
+                st.warning("Please select at least one answer before saving.")
+            else:
+                quizzies.at[quizzy.name, "answer"] = new_answer if len(new_answer) > 1 else new_answer[0]
+                quizzies.at[quizzy.name, "explanation"] = explanation
+                quizzies.to_json("data/quizzes.jsonl", lines=True, orient="records")
+                st.session_state.is_editing = False
+                st.success("Changes saved successfully!")
+                st.rerun()
         if col_cancel.button("❌ Cancel", type="secondary", key=f"cancel_{pos}"):
             st.session_state.is_editing = False
             st.rerun()
