@@ -111,14 +111,14 @@ def test_quiz_mode_targeted_domain_filter():
 
     # Select domain filter
     dom_select = [s for s in at.selectbox if "Filter by PMLE" in s.label][0]
-    target_domain = "Data Preparation & Ingestion"
-    if target_domain in dom_select.options:
-        dom_select.select(target_domain).run()
-        start_btn = [b for b in at.button if "Start Round" in b.label][0]
-        start_btn.click().run()
-        assert not at.exception
-        assert at.session_state.quiz_in_progress is True
-        assert all(getattr(q, "domain", None) == target_domain for q in at.session_state.quizzes)
+    assert len(dom_select.options) > 1
+    target_domain = dom_select.options[1]
+    dom_select.select(target_domain).run()
+    start_btn = [b for b in at.button if "Start Round" in b.label][0]
+    start_btn.click().run()
+    assert not at.exception
+    assert at.session_state.quiz_in_progress is True
+    assert all(getattr(q, "domain", None) == target_domain for q in at.session_state.quizzes)
 
 
 def test_dashboard_start_button_switches_page():
