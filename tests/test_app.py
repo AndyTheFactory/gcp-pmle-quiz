@@ -77,7 +77,7 @@ def test_quiz_mode_full_flow():
     assert not at.exception
 
     # Click Start Round
-    start_btn = [b for b in at.button if b.label == "Start Round"][0]
+    start_btn = [b for b in at.button if "Start Round" in b.label][0]
     start_btn.click().run()
     assert not at.exception
     assert at.session_state.quiz_in_progress is True
@@ -102,6 +102,22 @@ def test_quiz_mode_full_flow():
     assert not at.exception
     assert at.session_state.quiz_mode_pos == 1
     assert at.session_state.quiz_mode_answered is False
+
+
+def test_quiz_mode_targeted_product_filter():
+    at = AppTest.from_file("pages/3_🤔_Quiz_Mode.py")
+    at.run()
+    assert not at.exception
+
+    # Select Vertex AI filter
+    prod_select = [s for s in at.selectbox if "Filter by GCP" in s.label][0]
+    if "Vertex AI" in prod_select.options:
+        prod_select.select("Vertex AI").run()
+        start_btn = [b for b in at.button if "Start Round" in b.label][0]
+        start_btn.click().run()
+        assert not at.exception
+        assert at.session_state.quiz_in_progress is True
+        assert all("Vertex AI" in q.gcp_products for q in at.session_state.quizzes)
 
 
 def test_dashboard_start_button_switches_page():

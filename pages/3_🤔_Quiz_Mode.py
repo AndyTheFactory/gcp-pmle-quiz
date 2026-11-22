@@ -65,6 +65,14 @@ def show_quiz():
     q = quizzes[pos]
     st.header(f"Question (#{q.id}) {pos + 1} / {len(st.session_state.quizzes)}")
 
+    tags = []
+    if q.gcp_products:
+        tags.append(f"☁️ **Products:** {', '.join(q.gcp_products)}")
+    if q.gcp_topics or q.ml_topics:
+        tags.append(f"📚 **Topics:** {', '.join(q.gcp_topics or q.ml_topics)}")
+    if tags:
+        st.caption(" • ".join(tags))
+
     question = q.question if "<p>" in q.question.lower() else f"<p>{q.question}</p>"
     st.markdown(fix_image_src(question), unsafe_allow_html=True)
 
@@ -164,7 +172,8 @@ def show_stats():
     progress = load_progress()
     answered_incorrectly, not_answered, answered_correctly = load_quizzes(progress)
 
-    if not answered_incorrectly and not not_answered and not answered_correctly:
+    all_quizzes = answered_incorrectly + not_answered + answered_correctly
+    if not all_quizzes:
         st.warning("No quizzes found in data/quizzes.jsonl")
         return
 
@@ -178,37 +187,57 @@ def show_stats():
         with cols[2]:
             st.metric("Not answered", len(not_answered))
 
-    if st.button("Start Round", type="primary"):
+    with st.container(border=True):
+        st.subheader("🎯 Round Settings")
+        all_products = sorted(list(set(p for q in all_quizzes for p in q.gcp_products if p)))
+        c_prod, c_size = st.columns([2, 1])
+        selected_product = c_prod.selectbox(
+            "Filter by GCP Product / Domain:",
+            ["All Products / Domains"] + all_products,
+            key="selected_product_filter",
+        )
+        round_size = c_size.selectbox(
+            "Round size:",
+            [10, 20, 30, 50, "All"],
+            index=1,
+            key="round_size_selection",
+        )
+
+        include_wrong = st.toggle("➕ Include Previously Wrong Questions", value=True, key="wrong_answered_inclusion")
+        if include_wrong:
+            st.caption("Previously wrong answers will be prioritized so you can reinforce weak areas.")
+            st.number_input(
+                "Percentage of previously correct answers to include for review",
+                min_value=0,
+                max_value=100,
+                value=0,
+                step=10,
+                key="correct_answered_percentage",
+            )
+
+    if st.button("▶️ Start Round", type="primary"):
         if st.session_state.wrong_answered_inclusion:
             pct = st.session_state.get("correct_answered_percentage", 0)
             num_to_include = int(len(answered_correctly) * pct / 100)
-            quizzes = not_answered + answered_incorrectly
+            candidate_quizzes = not_answered + answered_incorrectly
             if num_to_include > 0:
                 logger.info(f"Including {num_to_include} previously correct answered questions in the round.")
                 sampled_correct = random.sample(answered_correctly, num_to_include) if num_to_include > 0 else []
-                quizzes += sampled_correct
+                candidate_quizzes += sampled_correct
         else:
-            quizzes = not_answered
+            candidate_quizzes = not_answered
 
-        if not quizzes:
-            st.warning("No quizzes left to answer for this round.")
+        if selected_product != "All Products / Domains":
+            candidate_quizzes = [q for q in candidate_quizzes if selected_product in q.gcp_products]
+
+        if not candidate_quizzes:
+            st.warning("No quizzes match the selected filters for this round.")
         else:
-            st.session_state.message = "Starting new round..."
-            start_new_round(quizzes)
-
-    st.info("Press 'Start Round' to begin the quiz.")
-
-    if st.toggle("➕ Include Wrong Answered", value=False, key="wrong_answered_inclusion"):
-        st.info("Previous wrong answers will be included in the quiz.")
-
-        st.number_input(
-            "Percentage of correct answered to include",
-            min_value=0,
-            max_value=100,
-            value=0,
-            step=10,
-            key="correct_answered_percentage",
-        )
+            if round_size != "All" and isinstance(round_size, int):
+                random.shuffle(candidate_quizzes)
+                candidate_quizzes = candidate_quizzes[:round_size]
+            st.session_state.message = f"Starting new round with {len(candidate_quizzes)} questions..."
+            start_new_round(candidate_quizzes)
 
 
 def main():
